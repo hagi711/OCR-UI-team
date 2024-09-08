@@ -1,55 +1,145 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'dart:io';
+import 'dart:async';
+//import 'CropImagePage.dart';
 
-class CameraPage extends StatefulWidget {
-  const CameraPage({
-    Key? key,
-    required this.camera,
-  }) : super(key: key);
 
-  final CameraDescription camera;
+
+class TakePicturePage extends StatefulWidget {
+  const TakePicturePage({
+    super.key,
+  });
 
   @override
-  CameraPageState createState() => CameraPageState();
+  TakePicturePageState createState() => TakePicturePageState();
 }
 
-class CameraPageState extends State<CameraPage> {
+class TakePicturePageState extends State<TakePicturePage> {
   late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
+  final _cameraLoaded = Completer<bool>();
+  var _isZooming = false;
+  var _isTakingPicture = false;
+
+  File? _imageFile;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = CameraController(
-      // カメラを指定
-      widget.camera,
-      // 解像度を定義
-      ResolutionPreset.medium,
-    );
-
-    // コントローラーを初期化
-    _initializeControllerFuture = _controller.initialize();
+    availableCameras().then((cameras) {
+      _controller = CameraController(cameras.first, ResolutionPreset.medium)
+        ..initialize().then((_) {
+          setState(() {
+            _cameraLoaded.complete(true);
+          });
+        }).onError((CameraException error, stackTrace) {
+          if (error.code == 'CameraAccessDenied') {
+            showDialog(
+              context: context,
+              builder: (context) => const SimpleDialog(
+                children: [Text('カメラに撮影許可を出してください')],
+              ),
+            );
+          }
+        });
+    });
   }
 
   @override
   void dispose() {
-    // ウィジェットが破棄されたら、コントローラーを破棄
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // FutureBuilder で初期化を待ってからプレビューを表示（それまではインジケータを表示）
-    return FutureBuilder<void>(
-      future: _initializeControllerFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          return CameraPreview(_controller);
-        } else {
-          return const Center(child: CircularProgressIndicator());
-        }
-      },
+    return Scaffold(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                FutureBuilder<bool>(
+                  future: _cameraLoaded.future,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Text('Error: ${snapshot.error!}');
+                    } else if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+                    return CameraPreview(_controller);
+                  },
+                ),
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    color: Colors.grey,
+                    child: Stack(
+                      children: [
+                        Row(
+                          children: [
+                            const Text('2倍ズーム'),
+                            Switch(
+                              value: _isZooming,
+                              onChanged: zoomingChanged,
+                            ),
+                          ],
+                        ),
+                        Center(
+                          child: FilledButton(
+                            onPressed:
+                                _cameraLoaded.isCompleted && !_isTakingPicture
+                                    ? () {
+                                        setState(() {
+                                          _isTakingPicture = true;
+                                        });
+                                        onTakePicture(context).then((_) {
+                                          setState(() {
+                                            _isTakingPicture = false;
+                                          });
+                                        });
+                                      }
+                                    : null,
+                            child: const Text('撮影'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_imageFile != null)
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Image.file(_imageFile!),
+              ),
+          ],
+        ),
+      ),
     );
   }
+
+  Future<void> onTakePicture(BuildContext context) async {
+    final image = await _controller.takePicture();
+    setState(() {
+      _imageFile = File(image.path);
+    });
+    Future.delayed(const Duration(seconds: 3)).then((_) {
+      setState(() {
+        _imageFile = null;
+      });
+    });
+  }
+
+  void zoomingChanged(bool? value) {
+    if (value == null) {
+      return;
+    }
+    setState(() {
+      _isZooming = value;
+    });
+    _controller.setZoomLevel(_isZooming ? 2.0 : 1.0);
+  }
+}

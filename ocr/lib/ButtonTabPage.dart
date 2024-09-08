@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import './camera.dart';
+import 'camera.dart';
 import './import.dart';
 import './Menu.dart';
 
@@ -10,11 +10,11 @@ class BottomTabPage extends StatefulWidget {
   }
 }
 
-class _BottomTabPageState extends State<BottomTabPage>  {
+class _BottomTabPageState extends State<BottomTabPage> {
 
   int _currentIndex = 0;
   final _pageWidgets = [
-    CameraPage(),
+    TakePicturePage(),
     ImportPage(),
     MenuPage()
   ];
@@ -28,9 +28,9 @@ class _BottomTabPageState extends State<BottomTabPage>  {
       body: _pageWidgets.elementAt(_currentIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.camera_alt),label: 'Camera'),
-          BottomNavigationBarItem(icon: Icon(Icons.vertical_align_bottom),label: 'Import'),
-          BottomNavigationBarItem(icon: Icon(Icons.menu),label: 'Menu'),
+          const BottomNavigationBarItem(icon: Icon(Icons.camera_alt),label: 'Camera'),
+          const BottomNavigationBarItem(icon: Icon(Icons.vertical_align_bottom),label: 'Import'),
+          const BottomNavigationBarItem(icon: Icon(Icons.menu),label: 'Menu'),
         ],
         currentIndex: _currentIndex,
         fixedColor: Colors.blueAccent,
